@@ -1,7 +1,10 @@
 package com.banco.otp.service;
 
+import java.math.BigInteger;
 import java.security.InvalidKeyException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
@@ -19,38 +22,82 @@ import org.springframework.stereotype.Service;
 @ComponentScan("com.banco.otp")
 public class serviceImpl {
 
+	static final String API_KEY = "A33EB88877C5546A5B66C4E8B584CE716";
 	/**
-	 * 
+	 * @param auth
 	 * @param user
 	 * @param host
+	 * @param signature
+	 * 
 	 */
 	public Map<String, Object> getCode(Map<String, Object> param) {
 		// TODO Auto-generated method stub
-		
 		Map<String, Object> result = new HashMap<>();
+		
+		if(!param.containsKey("auth")){
+			result.put("result", "failed");
+			result.put("message", "required auth parameter");
+			return result;
+		}
 		
 		if(!param.containsKey("user")){
 			result.put("result", "failed");
+			result.put("message", "required user parameter");
 			return result;
 		}
 		
 		if(!param.containsKey("host")){
 			result.put("result", "failed");
+			result.put("message", "required host parameter");
 			return result;
 		}
 		
+		boolean signature = false;
+		
+		String auth = param.get("auth").toString();
 		String user = param.get("user").toString();
 		String host = param.get("host").toString();
+		String sign = param.get("signature").toString();
 		
+		if("key".equals(auth)){
+			signature = check_apiKey(sign);
+		}
+		else if("sign".equals(auth)){
+			
+			if(!param.containsKey("date")){
+				result.put("result", "failed");
+				result.put("message", "required date parameter");
+				return result;
+			}
+			
+			String date = param.get("date").toString();
+			String message = user+host+date;
+			
+			signature = check_signature(sign, message);
+		}
+		else{
+			result.put("result", "failed");
+			result.put("message", "invalid auth parameter");
+			return result;
+		}
+		
+		if(!signature){
+			result.put("result", "failed");
+			result.put("message", "failed to confirm auth");
+			return result;
+		}
+		
+		//바코드 주소 만들기
 		byte[] buffer = new byte[5 + 5 * 5];
 		new Random().nextBytes(buffer);
 		byte[] secretKey = Arrays.copyOf(buffer, 5);
 		Base32 codec = new Base32();
         byte[] bEncodedKey = codec.encode(secretKey);
         String secret = new String(bEncodedKey);
-        String url = getQRBarcodeURL(user, host, secret); // 생성된 바코드 주소!
-        System.out.println("URL : " + url);
         
+        String url = getQRBarcodeURL(user, host, secret);
+        
+        System.out.println("URL : " + url);
         System.out.println("encodedKey : " + secret);
         
         result.put("key", secret);
@@ -58,6 +105,72 @@ public class serviceImpl {
         
 		return result;
 	}
+	
+	public boolean check_apiKey(String sign){
+		boolean result = false;
+		
+		if(API_KEY.equals(sign)){
+			result = true;
+		}
+		return result;
+	}
+	
+	public boolean check_signature(String sign, String message){
+		
+		boolean result = false;
+		
+		//test
+		String sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(new Date());
+		System.out.println(sdf);
+		
+	    Mac sha512_HMAC = null;
+	    String hash = null;
+	    
+		System.out.println(message);
+		
+	    try{
+	        byte [] byteKey = API_KEY.getBytes("UTF-8");
+	        final String HMAC_SHA512 = "HmacSHA512";
+	        sha512_HMAC = Mac.getInstance(HMAC_SHA512);
+	        SecretKeySpec keySpec = new SecretKeySpec(byteKey, HMAC_SHA512);
+	        sha512_HMAC.init(keySpec);
+	        byte [] mac_data = sha512_HMAC.doFinal(message.getBytes("UTF-8"));
+	        hash = bytesToHex(mac_data);
+	        System.out.println("hash : " + hash);
+	    } catch(Exception e){
+	    	e.printStackTrace();
+	    }
+		
+	    if(hash.equals(sign)){
+	    	result = true;
+	    }
+		
+		return result;
+	}
+	
+	public static String bytesToHex(byte[] bytes) {
+	    final char[] hexArray = "0123456789ABCDEF".toCharArray();
+	    char[] hexChars = new char[bytes.length * 2];
+	    for ( int j = 0; j < bytes.length; j++ ) {
+	        int v = bytes[j] & 0xFF;
+	        hexChars[j * 2] = hexArray[v >>> 4];
+	        hexChars[j * 2 + 1] = hexArray[v & 0x0F];
+	    }
+	    return new String(hexChars);
+	}
+	
+    public static String getSHA512(String input){
+		String toReturn = null;
+		try {
+		    MessageDigest digest = MessageDigest.getInstance("SHA-512");
+		    digest.reset();
+		    digest.update(input.getBytes("utf8"));
+		    toReturn = String.format("%040x", new BigInteger(1, digest.digest()));
+		} catch (Exception e) {
+		    e.printStackTrace();
+		}
+		return toReturn;
+    }
 	
     public static String getQRBarcodeURL(String user, String host, String secret) {
         String format = "https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=otpauth://totp/"
@@ -80,7 +193,65 @@ public class serviceImpl {
 	public Map<String, Object> getResult(Map<String, Object> param) {
 		// TODO Auto-generated method stub
 		Map<String, Object> result = new HashMap<>();
+		
+		if(!param.containsKey("auth")){
+			result.put("result", "failed");
+			result.put("message", "required auth parameter");
+			return result;
+		}
+		
+		if(!param.containsKey("code")){
+			result.put("result", "failed");
+			result.put("message", "required code parameter");
+			return result;
+		}
+		
+		if(!param.containsKey("key")){
+			result.put("result", "failed");
+			result.put("message", "required key parameter");
+			return result;
+		}
+		
+		if(!param.containsKey("signature")){
+			result.put("result", "failed");
+			result.put("message", "required date parameter");
+			return result;
+		}
+		
+		boolean signature = false;
+		
+		String auth = param.get("auth").toString();
 		String code = param.get("code").toString();
+		String key = param.get("key").toString();
+		String sign = param.get("signature").toString();
+		
+		if("key".equals(auth)){
+			signature = check_apiKey(sign);
+		}
+		else if("sign".equals(auth)){
+			
+			if(!param.containsKey("date")){
+				result.put("result", "failed");
+				result.put("message", "required date parameter");
+				return result;
+			}
+			
+			String date = param.get("date").toString();
+			String message = code+key+date;
+			
+			signature = check_signature(sign, message);
+		}
+		else{
+			result.put("result", "failed");
+			result.put("message", "invalid auth parameter");
+			return result;
+		}
+		
+		if(!signature){
+			result.put("result", "failed");
+			result.put("message", "failed to confirm auth");
+			return result;
+		}
 		
 		long user_code = Integer.parseInt(code);
         String encodedKey = param.get("key").toString();

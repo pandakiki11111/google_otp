@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.servlet.ModelAndView;
@@ -19,11 +20,12 @@ public class controller {
 	serviceImpl service;
 	
 	@RequestMapping(value="/getCode", method = RequestMethod.POST)
-	public ModelAndView getCode(Model model, @RequestBody Map<String, Object> param) {
+	public ModelAndView getCode(Model model, @RequestBody Map<String, Object> param, @RequestHeader(value="signature") String signature, @RequestHeader(value="auth") String auth) {
 		ModelAndView mv = new ModelAndView();
 		mv.setViewName("jsonView");
 		
-		System.out.println("^0^");
+		param.put("signature", signature);
+		param.put("auth", auth);
 		Map<String, Object> result = service.getCode(param);
 		
 		mv.addObject("result", result);
@@ -32,11 +34,12 @@ public class controller {
 	}
 	
 	@RequestMapping(value="/getResult", method = RequestMethod.POST)
-	public ModelAndView getResult(Model model, @RequestBody Map<String, Object> param) {
+	public ModelAndView getResult(Model model, @RequestBody Map<String, Object> param, @RequestHeader(value="signature") String signature, @RequestHeader(value="auth") String auth) {
 		ModelAndView mv = new ModelAndView();
 		mv.setViewName("jsonView");
 		
-		System.out.println("^0^");
+		param.put("signature", signature);
+		param.put("auth", auth);
 		Map<String, Object> result = service.getResult(param);
 		
 		mv.addObject("result", result);
