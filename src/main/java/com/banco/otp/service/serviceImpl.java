@@ -88,15 +88,16 @@ public class serviceImpl {
 		}
 		
 		//바코드 주소 만들기
-		byte[] buffer = new byte[5 + 5 * 5];
+		byte[] buffer = new byte[(5 + 5 * 5)*4];
 		new Random().nextBytes(buffer);
-		byte[] secretKey = Arrays.copyOf(buffer, 5);
+		byte[] secretKey = Arrays.copyOf(buffer, 20);
 		Base32 codec = new Base32();
         byte[] bEncodedKey = codec.encode(secretKey);
         String secret = new String(bEncodedKey);
         
         String url = getQRBarcodeURL(user, host, secret);
         
+        System.out.println("secretKey"+secretKey);
         System.out.println("URL : " + url);
         System.out.println("encodedKey : " + secret);
         
